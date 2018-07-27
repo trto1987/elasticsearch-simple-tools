@@ -490,6 +490,7 @@
                     var bulkDeleteIndex = $("#bulkDeleteIndex").val().trim();
                     var bulkDeleteType = $("#bulkDeleteType").val().trim();
                     var bulkDeleteRouting = $("#bulkDeleteRouting").val().trim();
+                    var routingQurey = '';
                     var bulkDeleteData = $("#bulkDeleteData").val();
                     if (!bulkDeleteIndex || !bulkDeleteType) {
                         msgBulkDeleteResult("参数为空");
@@ -499,7 +500,29 @@
                     var bulkDeleteUrl = host + "/" + bulkDeleteIndex + "/" + bulkDeleteType + "/_bulk";
 
                     if (!bulkDeleteData) {
-                        msgBulkDeleteResult("data为空");
+                        if (!confirm('确认删除该类型全部下的数据吗？')) {
+                            return false;
+                        }
+                        var searchUrl = host + "/" + bulkDeleteIndex + "/" + bulkDeleteType + "/_search";
+                        if (bulkDeleteRouting) {
+                            routingQurey = '{"term":{ "_routing":"' + bulkDeleteRouting + '"}}';
+                        }
+                        $.ajax({
+                            type: "POST",
+                            url: searchUrl,
+                            data: '{"from":0,"size":10000,"query":{"bool":{"must":[' + routingQurey + '],"must_not":[],' +
+                            '"should":[{"match_all":{}}]}},"sort":[],"aggs":{},"version":true}',
+                            success: function(result) {
+                                bulkDelete(bulkDeleteUrl, result, function(err) {
+                                    msgBulkDeleteResult("删除完成！共删除" + result.hits.hits.length + "条数据。");
+                                });
+                                return false;
+                            },
+                            error: function(err) {
+                                msgBulkDeleteResult(JSON.stringify(err));
+                                return false;
+                            }
+                        });
                         return false;
                     }
 
